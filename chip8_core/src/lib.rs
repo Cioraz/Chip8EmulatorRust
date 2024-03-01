@@ -24,7 +24,7 @@ const FONTSET: [u8; FONT_SIZE] = [
     0xF0, 0x80, 0x80, 0x80, 0xF0, // C
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80 // F
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 ];
 
 pub struct Emulator{
@@ -72,5 +72,24 @@ impl Emulator{
             panic!("Stack Ran out!");
         }
         self.stack[self.stack_ptr as usize];
+    }
+
+    pub fn tick(&mut self){
+        // do the fetch here
+        let opcode = self.fetch();
+        // Decode this opcode
+        // Execute the opcode giving ram and registers
+    }
+
+    fn fetch(&mut self) -> u16{
+        // here we are fetching the higher byte so lower byte is 0 extended here
+        let high_bytes = self.ram[self.pc as usize] as u16;
+        // Fetches the next instruction and takes lower byte of that instruction same as previous
+        // it has 0 extension
+        let lower_bytes = self.ram[(self.pc+1) as usize] as u16;
+        let opcode = (high_bytes<<8) | lower_bytes; // This converts the little endian to big
+        // endian and gets the 2 byte long opcode
+        self.pc +=2;
+        opcode
     }
 }
