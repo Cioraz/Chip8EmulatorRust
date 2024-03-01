@@ -73,12 +73,45 @@ impl Emulator{
         }
         self.stack[self.stack_ptr as usize];
     }
-
+    
+    // Operates every cycle once
     pub fn tick(&mut self){
         // do the fetch here
         let opcode = self.fetch();
         // Decode this opcode
         // Execute the opcode giving ram and registers
+        self.execute(opcode);
+    }
+
+    fn execute(&mut self,opcode: u16){
+        let dig1 = (opcode & 0xF000) >> 12;
+        let dig2 = (opcode & 0x0F00) >> 8;
+        let dig2 = (opcode & 0x00F0) >> 4;
+        let dig4 = (opcode & 0x000F);
+
+        match (dig1,dig2,dig3,dig4){
+            // Do nothing
+            (0,0,0,0) => return, 
+
+            // Set all the pixels back to false
+            (0,0,0xE,0) =>  self.screen = [false; SCREEN_HEIGHT*SCREEN_WIDTH];
+
+            // Return from subroutine
+            (0,0,0xE,0xE) => {
+                let ret_addr = self.pop();
+                self.pc = ret_addr;
+            },
+
+            // Jump to this memory location
+            (1,_,_,_) => {
+                let nnn = opcode & 0x0FFF;
+                self.pc = nnn;
+            }
+        
+            
+            // If opcode is unimplemented
+            (_,_,_,_) => unimplemented!("Unimplemented Code {}",opcode),
+        }
     }
 
     fn fetch(&mut self) -> u16{
@@ -92,4 +125,19 @@ impl Emulator{
         self.pc +=2;
         opcode
     }
+
+    pub fn tick_timers(&mut self){
+        if self.delay_timer >0{
+            self.delay_timer -=1;
+        }
+
+        if self.sound_timer >0{
+            if self.sound_timer == 1{
+                // Sound here
+            }
+            self.sound_timer -= 1;
+        }
+    }
+
+
 }
