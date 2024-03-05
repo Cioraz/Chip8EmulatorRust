@@ -13,7 +13,6 @@ const SCALE: u32 = 20;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
 const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
 
-
 fn draw_screen(emulator: &Emulator, canvas: &mut Canvas<Window>){
     // Make and clear canvas to black
     canvas.set_draw_color(Color::RGB(0,0,0));
