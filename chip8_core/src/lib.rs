@@ -1,6 +1,6 @@
 const RAM_SIZE: usize = 0x1000; // 4096
 const NUM_REGS: usize = 16;
-const STACK_SIZE: usize= = 16;
+const STACK_SIZE: usize = 16;
 const NUM_KEYS: usize = 16;
 const START_ADDR: u16 = 0x200;
 const FONT_SIZE: usize = 80;
@@ -28,7 +28,7 @@ const FONTSET: [u8; FONT_SIZE] = [
 ];
 
 pub struct Emulator{
-    pc: hu16,
+    pc: u16,
     ram: [u8; RAM_SIZE],
     screen: [bool; SCREEN_HEIGHT*SCREEN_WIDTH],
     v: [u8; NUM_REGS],
@@ -41,6 +41,20 @@ pub struct Emulator{
 }
 
 impl Emulator{
+    pub fn get_display(&self) -> &[bool]{
+        &self.screen
+    }
+
+    pub fn keypress(&mut self,idx: usize,pressed: bool){
+        self.keys[idx] = pressed;
+    }
+
+    pub fn load_game(&mut self,data: &[u8]){
+        let start = START_ADDR as usize;
+        let end = (START_ADDR as usize) + data.len();
+        self.ram[start..end].copy_from_slice(data);
+    }
+
     pub fn new() -> Self{
         let mut new_emulator = Self {
             pc: START_ADDR,
@@ -62,6 +76,9 @@ impl Emulator{
     }
 
     fn push(&mut self,val: u16){
+        if self.stack.len() >16 { 
+            panic!("Stack Overflow!");
+        }
         self.stack[self.stack_ptr as usize] = val;
         self.stack_ptr +=1 ;
     }
@@ -71,7 +88,7 @@ impl Emulator{
         if self.stack_ptr <0 {
             panic!("Stack Ran out!");
         }
-        self.stack[self.stack_ptr as usize];
+        self.stack[self.stack_ptr as usize]
     }
     
     // Operates every cycle once
@@ -86,15 +103,15 @@ impl Emulator{
     fn execute(&mut self,opcode: u16){
         let dig1 = (opcode & 0xF000) >> 12;
         let dig2 = (opcode & 0x0F00) >> 8;
-        let dig2 = (opcode & 0x00F0) >> 4;
-        let dig4 = (opcode & 0x000F);
+        let dig3 = (opcode & 0x00F0) >> 4;
+        let dig4 = opcode & 0x000F;
 
         match (dig1,dig2,dig3,dig4){
             // Do nothing
             (0,0,0,0) => return, 
 
             // Set all the pixels back to false
-            (0,0,0xE,0) =>  self.screen = [false; SCREEN_HEIGHT*SCREEN_WIDTH];
+            (0,0,0xE,0) =>  self.screen = [false; SCREEN_HEIGHT*SCREEN_WIDTH],
 
             // Return from subroutine
             (0,0,0xE,0xE) => {
@@ -106,7 +123,14 @@ impl Emulator{
             (1,_,_,_) => {
                 let nnn = opcode & 0x0FFF;
                 self.pc = nnn;
-            }
+            },
+            
+            // Add current pc to stack and jump to nnn
+            (2,_,_,_) =>{
+                let nnn = opcode & 0x0FFF;
+                self.push(self.pc);
+                self.pc = nnn;
+            },
         
             
             // If opcode is unimplemented
