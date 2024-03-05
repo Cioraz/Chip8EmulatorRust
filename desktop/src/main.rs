@@ -13,6 +13,32 @@ const SCALE: u32 = 20;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
 const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
 
+
+fn draw_screen(emulator: &Emulator, canvas: &mut Canvas<Window>){
+    // Make and clear canvas to black
+    canvas.set_draw_color(Color::RGB(0,0,0));
+    canvas.clear();
+
+    let screen_buffer = emulator.get_display();
+    // Set drawing color to white to iterate over each point and see if it must be drawn
+    for (i,pixel) in screen_buffer.iter().enumerate(){
+        if *pixel{
+            // Convert to get 1D array to 2D position
+            let x = (i % SCREEN_WIDTH) as u32;
+            let y = (i / SCREEN_WIDTH) as u32;
+            
+
+            // Draw rectangle at (x,y) scaled by the scale factor
+            let rect = Rect::new((x*SCALE) as i32, (y*SCALE) as i32,SCALE,SCALE);
+            canvas.fill_rect(rect).unwrap();
+        }
+    }
+
+    canvas.present();
+    
+}
+
+
 fn main() -> Result<(),String>{
     let args: Vec<String> = env::args().collect();
 
@@ -48,6 +74,8 @@ fn main() -> Result<(),String>{
                 _ => ()
             }
         }
+        chip8.tick();
+        draw_screen(&chip8,&mut canvas);
     }
 
 

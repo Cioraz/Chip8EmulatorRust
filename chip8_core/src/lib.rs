@@ -131,10 +131,60 @@ impl Emulator{
                 self.push(self.pc);
                 self.pc = nnn;
             },
+            
+
+            // 3XNN : skip next if VX == NN
+            (3,_,_,_) =>{
+                let x = dig2 as usize;
+                let nn = (opcode & 0x00FF) as u8;
+                if self.v[x] == nn{
+                    self.pc+=2;
+                }
+            },
+    
+            // 4XNN : skip next if VX!=NN
+            (4,_,_,_) =>{
+                let x = dig2 as usize;
+                let nn = (opcode & 0x00FF) as u8;
+                if self.v[x] != nn {
+                    self.pc +=2;
+                }
+            },
+
+            // 5XY0 : skip next if VX == VY
+            (5,_,_,0) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                if self.v[x] == self.v[y]{
+                    self.pc +=2;
+                }
+            },
+            
+            // 6XNN : set V register specified by second dig to value given
+            (6,_,_,_) =>{
+                let x = dig2 as usize;
+                let nn = opcode & 0x00FF as u8;
+                self.v[x] = nn;
+            },
+
+            // 7XNN : adds given value to register VX
+            (7,_,_,_) =>{
+                let x = dig2 as usize;
+                let nn = opcode & 0x00FF as u8;
+                // This is done to prevent it crossing the contraint size
+                self.v[x] = self.v[x].wrapping_add(nn);
+            },
+            
+            // 8XY0 : sets VX = VY
+            (8,_,_,0) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                self.v[x] =  self.v[y];
+            }
         
             
             // If opcode is unimplemented
-            (_,_,_,_) => unimplemented!("Unimplemented Code {}",opcode),
+           (_,_,_,_) => unimplemented!("Unimplemented Code {}",opcode),
         }
     }
 
