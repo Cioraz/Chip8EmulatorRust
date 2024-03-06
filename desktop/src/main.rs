@@ -19,6 +19,7 @@ fn draw_screen(emulator: &Emulator, canvas: &mut Canvas<Window>){
     canvas.clear();
 
     let screen_buffer = emulator.get_display();
+    canvas.set_draw_color(Color::RGB(255,255,255));
     // Set drawing color to white to iterate over each point and see if it must be drawn
     for (i,pixel) in screen_buffer.iter().enumerate(){
         if *pixel{
@@ -59,6 +60,9 @@ fn main() -> Result<(),String>{
         .map_err(|e| e.to_string())?;
 
     let mut canvas = window.into_canvas().present_vsync().build().map_err(|e| e.to_string())?;
+
+    canvas.clear();
+    canvas.present();
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut chip8 = Emulator::new();

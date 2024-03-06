@@ -61,9 +61,6 @@ impl Emulator{
 
     fn pop(&mut self) -> u16{
         self.stack_ptr -=1 ;
-        if self.stack_ptr <0 {
-            panic!("Stack Ran out!");
-        }
         self.stack[self.stack_ptr as usize]
     }
     
@@ -192,7 +189,7 @@ impl Emulator{
 
             // 8XY5 : subtraction VX -= VY
             // here the flag reg works in opposite sense
-            (8,X,Y,5) =>{
+            (8,_,_,5) =>{
                 let x = dig2 as usize;
                 let y = dig3 as usize;
                 let final_vx = self.v[x].wrapping_sub(self.v[y]);
@@ -206,7 +203,6 @@ impl Emulator{
             // 8XY6 : right shifts the VX reg and stores the dropped bit into the VF reg
             (8,_,_,6) =>{
                 let x = dig2 as usize;
-                let y = dig3 as usize;
                 let dropped_bit = self.v[x] & 1;
                 self.v[x] >>= 1;
                 self.v[0xF] = dropped_bit;
@@ -227,7 +223,6 @@ impl Emulator{
             // 8XYE: sets VX as the left shifted one with bit overflow in vf register
             (8,_,_,0xE) =>{
                 let x = dig2 as usize;
-                let y = dig3 as usize;
                 // Size these are max u8
                 let dropped_bit = (self.v[x] >> 7) & 1;
                 self.v[x] <<= 1;
@@ -235,7 +230,7 @@ impl Emulator{
             },
             
             // 9XY0 : skip iteration
-            (9,X,Y,0) =>{
+            (9,_,_,0) =>{
                 let x = dig2 as usize;
                 let y = dig3 as usize;
                 if self.v[x] != self.v[y]{
@@ -366,6 +361,41 @@ impl Emulator{
             (0xF,_,2,9)  =>{
                 let x = dig2 as usize;
                 self.index_reg = (self.v[x] as u16) * 5;
+            },
+
+            // FX33 : convert the BCD to a displayable format
+            // try doing this using double dabble (TODO)
+            (0xF,_,3,3) =>{
+                let x = dig2 as usize;
+                // To accomodate for rounding errors
+                let vx = self.v[x] as f32;
+
+                let hundreds = (vx/100.0).floor() as u8;
+                let tens = ((vx/10.0)%10.0).floor() as u8;
+                let ones = (vx%10.0) as u8;
+
+                self.ram[self.index_reg as usize] = hundreds;
+                self.ram[(self.index_reg +1 ) as usize] = tens;
+                self.ram[(self.index_reg +2) as usize] = ones;
+
+            },
+            
+            // FX55 : store VO-VX into index_reg
+            (0xF,_,5,5) =>{
+                let x = dig2 as usize;
+                let i = self.index_reg as usize;
+                for idx in 0..=x{
+                    self.ram[i+idx] = self.v[idx];
+                }
+            },
+
+            // FX65 : Load index_reg into V0-VX
+            (0xF,_,6,5) =>{
+                let x = dig2 as usize;
+                let i = self.index_reg as usize;
+                for idx in 0..=x{
+                    self.v[idx] = self.ram[i+idx];
+                }
             },
 
 
