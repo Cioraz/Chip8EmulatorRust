@@ -318,7 +318,58 @@ impl Emulator{
                 if isflipped {self.v[0xF] = 1} else {self.v[0xF] = 0};
 
 
-            }
+            },
+
+            // FX07 : set VX to delay_timer
+            (0xF,_,0,7) =>{
+                let x = dig2 as usize;
+                self.v[x] = self.delay_timer;
+            },
+
+            // FX0A : wait for key press ( basically like a pause )
+            (0xF,_,0,0xA) =>{
+                let x = dig2 as usize;
+                let mut pressed = false;
+                for i in 0..self.keys.len(){
+                    if self.keys[i]{
+                        self.v[x] = i as u8;
+                        pressed = true;
+                        break;
+                    }
+                }
+
+                if !pressed {self.pc+=2};
+                
+            },
+
+            // FX15 : set delay_timer to VX
+            (0xF,_,1,5) =>{
+                let x = dig2 as usize;
+                self.delay_timer = self.v[x];
+            },
+            
+            // FX18 : set sound_timer to VX
+            (0xF,_,1,8) =>{
+                let x = dig2 as usize;
+                self.sound_timer = self.v[x];
+            },
+
+            // FX1E : increment index_reg with itself and VX
+            (0xF,_,1,0xE) =>{
+                let x = dig2 as usize;
+                let vx = self.v[x] as u16;
+                self.index_reg = self.index_reg.wrapping_add(vx);
+            },
+
+            // FX29 : set I to font address
+            // Each font sprite takes 5 bytes each
+            (0xF,_,2,9)  =>{
+                let x = dig2 as usize;
+                self.index_reg = (self.v[x] as u16) * 5;
+            },
+
+
+
             
             
             // If opcode is unimplemented
