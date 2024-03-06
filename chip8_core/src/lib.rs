@@ -1,31 +1,7 @@
-const RAM_SIZE: usize = 0x1000; // 4096
-const NUM_REGS: usize = 16;
-const STACK_SIZE: usize = 16;
-const NUM_KEYS: usize = 16;
-const START_ADDR: u16 = 0x200;
-const FONT_SIZE: usize = 80;
+use rand::random;
 
-pub const SCREEN_WIDTH: usize = 64;
-pub const SCREEN_HEIGHT: usize = 32;
-
-const FONTSET: [u8; FONT_SIZE] = [
-    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-    0x20, 0x60, 0x20, 0x20, 0x70, // 1
-    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
-];
+mod constants;
+pub use constants::*;
 
 pub struct Emulator{
     pc: u16,
@@ -163,14 +139,14 @@ impl Emulator{
             // 6XNN : set V register specified by second dig to value given
             (6,_,_,_) =>{
                 let x = dig2 as usize;
-                let nn = opcode & 0x00FF as u8;
+                let nn = (opcode & 0x00FF) as u8;
                 self.v[x] = nn;
             },
 
             // 7XNN : adds given value to register VX
             (7,_,_,_) =>{
                 let x = dig2 as usize;
-                let nn = opcode & 0x00FF as u8;
+                let nn = (opcode & 0x00FF) as u8;
                 // This is done to prevent it crossing the contraint size
                 self.v[x] = self.v[x].wrapping_add(nn);
             },
@@ -180,8 +156,170 @@ impl Emulator{
                 let x = dig2 as usize;
                 let y = dig3 as usize;
                 self.v[x] =  self.v[y];
+            },
+
+            // 8XY1 : bitwise operations
+            (8,_,_,1) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                self.v[x] |= self.v[y];
+            },
+
+            // 8XY2 : bitwise operations
+            (8,_,_,2) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                self.v[x] |= self.v[y];
+            },
+
+            // 8XY3 : bitwise operations
+            (8,_,_,3) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                self.v[x] |= self.v[y];
+            },
+
+            // 8XY4 : adding VX to VY
+            (8,_,_,4) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                let (final_vx,carry) = self.v[x].overflowing_add(self.v[y]);
+                let final_vf = if carry {1} else {0};
+                self.v[x] = final_vx;
+                // 16 reg is used in storing the flag bit for overflow
+                self.v[0xF] = final_vf;
+            },
+
+            // 8XY5 : subtraction VX -= VY
+            // here the flag reg works in opposite sense
+            (8,X,Y,5) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                let final_vx = self.v[x].wrapping_sub(self.v[y]);
+                let final_vf = if self.v[x] < self.v[y] {0} else {1};
+                self.v[x] = final_vx;
+                self.v[0xF] = final_vf;
+                // overflowing_sub can also be used which offers inbuilt tuple output
+            },
+    
+
+            // 8XY6 : right shifts the VX reg and stores the dropped bit into the VF reg
+            (8,_,_,6) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                let dropped_bit = self.v[x] & 1;
+                self.v[x] >>= 1;
+                self.v[0xF] = dropped_bit;
+            },
+
+
+            // 8XY7 : does VX = VY-VX
+            (8,_,_,7) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+
+                let final_vx = self.v[y].wrapping_sub(self.v[x]);
+                let final_vf = if self.v[y] < self.v[x] {0} else {1};
+                self.v[x] = final_vx;
+                self.v[0xF] = final_vf;
+            },
+
+            // 8XYE: sets VX as the left shifted one with bit overflow in vf register
+            (8,_,_,0xE) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                // Size these are max u8
+                let dropped_bit = (self.v[x] >> 7) & 1;
+                self.v[x] <<= 1;
+                self.v[0xF] = dropped_bit;
+            },
+            
+            // 9XY0 : skip iteration
+            (9,X,Y,0) =>{
+                let x = dig2 as usize;
+                let y = dig3 as usize;
+                if self.v[x] != self.v[y]{
+                    self.pc+=2;
+                }
+            },
+
+            // ANNN : Set the index register to this NNN
+            (0xA,_,_,_) =>{
+                let nnn = opcode & 0x0FFF;
+                self.index_reg = nnn;
+            },
+
+            // BNNN : Jump to v0 + NNN
+            (0xB,_,_,_) =>{
+                let nnn = opcode & 0x0FFF;
+                self.pc = (self.v[0] as u16) + nnn;
+            },
+
+            // CXNN : set VX = random() & NN
+            (0xC,_,_,_) =>{
+                let x = dig2 as usize;
+                let nn = (opcode & 0x00FF) as u8;
+                let rand_number : u8 = random();
+                self.v[x] = rand_number & nn;
+            },
+
+            // EX9E : skip if key is pressed
+            (0xE,_,9,0xE) =>{
+                let x = dig2 as usize;
+                let vx = self.v[x];
+                let key = self.keys[vx as usize];
+                if key  {self.pc+=2;}
+            },
+
+            // EXA1 : skip if key is not pressed
+            (0xE,_,0xA,1) =>{
+                let x = dig2 as usize;
+                let vx = self.v[x];
+                let key = self.keys[vx as usize];
+                if !key {self.pc+=2;}
+            },
+
+            // DXYN : Draw Sprite
+            (0xD,_,_,_) =>{
+                // Getting the x and y coordinates from v registers
+                let x_coordinate = self.v[dig2 as usize] as u16;
+                let y_coordinate = self.v[dig3 as usize] as u16;
+                
+                // Last digit tells how many rows high sprite data is
+                let height = dig4;
+
+                // Tracks for flipped pixels
+                let mut isflipped = false;
+
+                // Iterating over each row of sprite data
+                for y_line in 0..height{
+                    // Finding which memory address row data is stored in
+                    let address = self.index_reg + y_line as u16;
+                    let pixels = self.ram[address as usize];
+                    
+                    // Each is a byte long
+                    for x_line in 0..8{
+                        if (pixels & (0b1000_0000 >> x_line)) != 0{
+                            let x = (x_coordinate + x_line) as usize % SCREEN_WIDTH;
+                            let y = (y_coordinate + y_line) as usize % SCREEN_HEIGHT;
+
+                            // Fetch pixels index for 1D screen array
+                            let idx = x + SCREEN_WIDTH  * y;
+
+                            // Check if to flip pixel and set
+                            isflipped |= self.screen[idx];
+                            self.screen[idx] = true;
+
+                        }
+                    }
+                }
+
+                // Fill the VF register
+                if isflipped {self.v[0xF] = 1} else {self.v[0xF] = 0};
+
+
             }
-        
+            
             
             // If opcode is unimplemented
            (_,_,_,_) => unimplemented!("Unimplemented Code {}",opcode),
